@@ -4,19 +4,28 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import ts from 'typescript';
 import type { InitializeHookData } from './types.ts';
 import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 
 // ВАЖНО: не должен иметь флагов g и y чтобы не быть stateful
 const EXT_REGEX = /\.(jsx|ts|tsx|mts|cts)$/;
 
 const CACHE_DIR = path.join(process.cwd(), 'node_modules/.cache/@krutoo/ts-loader/transpilation');
 
+const RECURSIVE = { recursive: true };
+
 let data: InitializeHookData;
+let transpileOptions: ts.CompilerOptions;
 let host: ts.CompilerHost;
 
 export const initialize: InitializeHook = (initData: InitializeHookData) => {
   data = initData;
+  transpileOptions = {
+    ...data.compilerOptions,
+
+    // ВАЖНО: без этого почему-то иногда на выходе всё равно CommonJS
+    module: ts.ModuleKind.ESNext,
+  };
   host = ts.createCompilerHost(data.compilerOptions);
 };
 
@@ -49,18 +58,13 @@ export const load: LoadHook = async (url, context, next) => {
     return next(url, context);
   }
 
-  // читаем
-  const source = await fs.readFile(fileURLToPath(url), 'utf-8');
+  // создаем ключ кэша используя хэш имени и хэш содержимого
+  const fileName = fileURLToPath(url);
+  const { mtimeMs, size } = await fs.stat(fileName);
+  const cacheKey = createHash('md5').update(`${url}-${mtimeMs}-${size}`).digest('hex');
 
-  // создаем хэш для имени и хэш для содержимого
-  const nameHash = createHash('md5').update(url).digest('hex');
-
-  const contentHash = createHash('sha256')
-    .update(source)
-    .update(JSON.stringify(data.compilerOptions))
-    .digest('hex');
-
-  const cachePath = path.join(CACHE_DIR, `${nameHash}-${contentHash}.js`);
+  // @todo учитывать mtimeMs, size файла tsconfig.json
+  const cachePath = path.join(CACHE_DIR, `${cacheKey}.js`);
 
   // проверяем наличие в кэше
   if (existsSync(cachePath)) {
@@ -71,20 +75,18 @@ export const load: LoadHook = async (url, context, next) => {
     };
   }
 
-  // если в кэше нет — компилируем
-  const output = ts.transpileModule(source, {
-    fileName: url,
-    compilerOptions: {
-      ...data.compilerOptions,
+  // если в кэше нет — читаем
+  const source = await fs.readFile(fileURLToPath(url), 'utf-8');
 
-      // ВАЖНО: без этого почему-то иногда на выходе всё равно CommonJS
-      module: ts.ModuleKind.ESNext,
-    },
+  // компилируем
+  const output = ts.transpileModule(source, {
+    fileName,
+    compilerOptions: transpileOptions,
   });
 
   // сохраняем в кэш
   // @todo придумать как удалять неактуальный кэш
-  await fs.mkdir(path.dirname(cachePath), { recursive: true });
+  await fs.mkdir(path.dirname(cachePath), RECURSIVE);
   await fs.writeFile(cachePath, output.outputText);
 
   return {
