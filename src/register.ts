@@ -31,7 +31,6 @@ if (config.errors.length > 0) {
 
 // включаем блокировку повторного typecheck в рамках одного и того же родительского процесса
 // это нужно например для node --test когда в рамках процесса register запускается несколько раз
-// @todo придумать как удалять созданные lock-файлы
 const lockPath = path.join(
   process.cwd(),
   `node_modules/.cache/@krutoo/ts-loader/typecheck-${process.ppid}.lock`,
@@ -40,6 +39,7 @@ const lockPath = path.join(
 let needTypeCheck = false;
 
 try {
+  // @todo придумать как удалять созданные lock-файлы либо поменять подход
   mkdirSync(path.dirname(lockPath), { recursive: true });
   writeFileSync(lockPath, '', { flag: 'wx' }); // wx выбросит ошибку если кто-то уже записал файл
   needTypeCheck = true;

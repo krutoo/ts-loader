@@ -3,9 +3,14 @@ import type { InitializeHook, LoadHook, ResolveHook } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import ts from 'typescript';
 import type { InitializeHookData } from './types.ts';
+import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 
 // ВАЖНО: не должен иметь флагов g и y чтобы не быть stateful
-const extensionRegex = /\.(ts|tsx|mts|cts)$/;
+const EXT_REGEX = /\.(jsx|ts|tsx|mts|cts)$/;
+
+const CACHE_DIR = path.join(process.cwd(), 'node_modules/.cache/@krutoo/ts-loader/transpilation');
 
 let data: InitializeHookData;
 let host: ts.CompilerHost;
@@ -40,19 +45,47 @@ export const resolve: ResolveHook = (specifier, context, next) => {
 
 export const load: LoadHook = async (url, context, next) => {
   // @todo не уверен что так стоит делать...
-  if (!extensionRegex.test(url)) {
+  if (!EXT_REGEX.test(url)) {
     return next(url, context);
   }
 
-  const source = await fs.readFile(new URL(url), 'utf-8');
+  // читаем
+  const source = await fs.readFile(fileURLToPath(url), 'utf-8');
 
+  // создаем хэш для имени и хэш для содержимого
+  const nameHash = createHash('md5').update(url).digest('hex');
+
+  const contentHash = createHash('sha256')
+    .update(source)
+    .update(JSON.stringify(data.compilerOptions))
+    .digest('hex');
+
+  const cachePath = path.join(CACHE_DIR, `${nameHash}-${contentHash}.js`);
+
+  // проверяем наличие в кэше
+  if (existsSync(cachePath)) {
+    return {
+      format: 'module',
+      shortCircuit: true,
+      source: await fs.readFile(cachePath, 'utf8'),
+    };
+  }
+
+  // если в кэше нет — компилируем
   const output = ts.transpileModule(source, {
     fileName: url,
     compilerOptions: {
       ...data.compilerOptions,
+
+      // ВАЖНО: без этого почему-то иногда на выходе всё равно CommonJS
       module: ts.ModuleKind.ESNext,
     },
   });
+
+  // сохраняем в кэш
+  // @todo придумать как удалять неактуальный кэш
+  await fs.mkdir(path.dirname(cachePath), { recursive: true });
+  await fs.writeFile(cachePath, output.outputText);
 
   return {
     format: 'module',
