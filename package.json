@@ -1,0 +1,44 @@
+{
+  "name": "@krutoo/ts-loader",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "TypeScript loader with typecheck",
+  "author": "Dmitriy Petrov <dima.krutoo@yandex.ru>",
+  "keywords": [
+    "typescript",
+    "typecheck",
+    "loader"
+  ],
+  "license": "Apache-2.0",
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=24.6.0",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": ">=11.5.1",
+      "onFail": "error"
+    }
+  },
+  "scripts": {
+    "fmt": "prettier . --write",
+    "check": "tsc -p . --noEmit",
+    "build": "node ./scripts/build.ts"
+  },
+  "peerDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "prettier": "^3.8.1",
+    "tsc-alias": "^1.8.16"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./dist/register.js"
+  }
+}

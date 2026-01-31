@@ -1,0 +1,14 @@
+# dependencies
+node_modules
+
+# build artifacts
+dist
+
+# Mac OS artifacts
+.DS_Store
+
+# npm pack result
+*.tgz
+
+# vscode
+.vscode/settings.json
