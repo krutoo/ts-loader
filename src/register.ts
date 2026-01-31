@@ -1,8 +1,9 @@
-import { register } from 'node:module';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { register } from 'node:module';
 import ts from 'typescript';
 import type { InitializeHookData } from './types.ts';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { CACHE_DIR } from './constants.ts';
 
 // ищем файл конфига
 const configPath = ts.findConfigFile(process.cwd(), ts.sys.fileExists);
@@ -31,10 +32,7 @@ if (config.errors.length > 0) {
 
 // включаем блокировку повторного typecheck в рамках одного и того же родительского процесса
 // это нужно например для node --test когда в рамках процесса register запускается несколько раз
-const lockPath = path.join(
-  process.cwd(),
-  `node_modules/.cache/@krutoo/ts-loader/typecheck-${process.ppid}.lock`,
-);
+const lockPath = path.join(process.cwd(), CACHE_DIR, `typecheck-${process.ppid}.lock`);
 
 let needTypeCheck = false;
 

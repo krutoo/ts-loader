@@ -6,11 +6,12 @@ import type { InitializeHookData } from './types.ts';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
+import { CACHE_DIR } from './constants.ts';
 
 // ВАЖНО: не должен иметь флагов g и y чтобы не быть stateful
 const EXT_REGEX = /\.(jsx|ts|tsx|mts|cts)$/;
 
-const CACHE_DIR = path.join(process.cwd(), 'node_modules/.cache/@krutoo/ts-loader/transpilation');
+const TRANSPILE_CACHE_DIR = path.join(process.cwd(), CACHE_DIR, 'transpilation');
 
 const RECURSIVE = { recursive: true };
 
@@ -20,13 +21,32 @@ let host: ts.CompilerHost;
 
 export const initialize: InitializeHook = (initData: InitializeHookData) => {
   data = initData;
-  transpileOptions = {
-    ...data.compilerOptions,
+  host = ts.createCompilerHost(data.compilerOptions);
 
+  // для транспиляции берем только то, что важно
+  transpileOptions = {
     // ВАЖНО: без этого почему-то иногда на выходе всё равно CommonJS
     module: ts.ModuleKind.ESNext,
+
+    target: data.compilerOptions.target,
+    rootDir: data.compilerOptions.rootDir,
+    jsx: data.compilerOptions.jsx,
+    jsxFactory: data.compilerOptions.jsxFactory,
+    jsxImportSource: data.compilerOptions.jsxImportSource,
+    jsxFragmentFactory: data.compilerOptions.jsxFragmentFactory,
+    declaration: false,
+    declarationMap: false,
+    sourceMap: false,
+    incremental: false,
+    tsBuildInfoFile: undefined,
+    checkJs: false,
+    skipLibCheck: true,
+    noEmitHelpers: true,
+    importHelpers: true,
+    removeComments: true,
+    types: [],
+    lib: [],
   };
-  host = ts.createCompilerHost(data.compilerOptions);
 };
 
 export const resolve: ResolveHook = (specifier, context, next) => {
@@ -64,7 +84,7 @@ export const load: LoadHook = async (url, context, next) => {
   const cacheKey = createHash('md5').update(`${url}-${mtimeMs}-${size}`).digest('hex');
 
   // @todo учитывать mtimeMs, size файла tsconfig.json
-  const cachePath = path.join(CACHE_DIR, `${cacheKey}.js`);
+  const cachePath = path.join(TRANSPILE_CACHE_DIR, `${cacheKey}.js`);
 
   // проверяем наличие в кэше
   if (existsSync(cachePath)) {
@@ -82,6 +102,7 @@ export const load: LoadHook = async (url, context, next) => {
   const output = ts.transpileModule(source, {
     fileName,
     compilerOptions: transpileOptions,
+    reportDiagnostics: false,
   });
 
   // сохраняем в кэш
