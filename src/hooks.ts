@@ -12,9 +12,7 @@ import { CACHE_DIR } from './constants.ts';
 // ВАЖНО: не должен иметь флагов g и y чтобы не быть stateful
 const EXT_REGEX = /\.(jsx|ts|tsx|mts|cts)$/;
 
-const TRANSPILE_CACHE_DIR = path.join(process.cwd(), CACHE_DIR, 'transpilation');
-
-const RECURSIVE = { recursive: true };
+const TRANSPILE_CACHE_DIR = path.join(process.cwd(), CACHE_DIR, 'transpiled');
 
 let data: InitializeHookData;
 let transpileOptions: CompilerOptions;
@@ -123,7 +121,7 @@ export const load: LoadHook = async (url, context, next) => {
 
   // сохраняем в кэш
   // @todo придумать как удалять неактуальный кэш
-  await fs.mkdir(path.dirname(cachePath), RECURSIVE);
+  await fs.mkdir(path.dirname(cachePath), { recursive: true });
   await fs.writeFile(cachePath, output.outputText);
 
   return {

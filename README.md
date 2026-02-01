@@ -8,7 +8,7 @@
 ### Installation
 
 ```sh
-npm i -D @krutoo/ts-loader
+npm i -D @krutoo/ts-loader typescript
 ```
 
 ### Usage
@@ -24,3 +24,4 @@ node --import @krutoo/ts-loader ./my-program.ts
 ### To Do
 
 - Allow missing `tsconfig.json` and skip typecheck if not present?
+- Using `tsgo`

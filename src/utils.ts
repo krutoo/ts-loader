@@ -4,7 +4,9 @@ import { getTypeScript } from './deps.ts';
 import { CACHE_DIR } from './constants.ts';
 import type { ParsedCommandLine } from 'typescript';
 
-export type Config = Pick<ParsedCommandLine, 'fileNames' | 'options'>;
+export type Config = Pick<ParsedCommandLine, 'fileNames' | 'options'> & {
+  tsLoader: { skipCheck: boolean };
+};
 
 export async function defineConfig(instanceId: string): Promise<Config> {
   let config: Config;
@@ -46,6 +48,9 @@ export async function defineConfig(instanceId: string): Promise<Config> {
     config = {
       fileNames: parsed.fileNames,
       options: parsed.options,
+      tsLoader: {
+        skipCheck: rawConfig?.['ts-loader']?.skipCheck ?? false,
+      },
     };
 
     // сохраняем файл конфига в кэш
@@ -63,6 +68,7 @@ export async function defineConfig(instanceId: string): Promise<Config> {
 
 export function defineIsChecker(instanceId: string): boolean {
   const lockPath = path.join(process.cwd(), CACHE_DIR, `typecheck-${instanceId}.lock`);
+
   let isChecker = false;
 
   if (!fs.existsSync(lockPath)) {
