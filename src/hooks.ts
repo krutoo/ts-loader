@@ -17,11 +17,12 @@ const RECURSIVE = { recursive: true };
 
 let data: InitializeHookData;
 let transpileOptions: ts.CompilerOptions;
-let host: ts.CompilerHost;
+let resolutionCache: ts.ModuleResolutionCache;
 
 export const initialize: InitializeHook = (initData: InitializeHookData) => {
   data = initData;
-  host = ts.createCompilerHost(data.compilerOptions);
+
+  resolutionCache = ts.createModuleResolutionCache(process.cwd(), s => s, data.compilerOptions);
 
   // для транспиляции берем только то, что важно
   transpileOptions = {
@@ -58,7 +59,8 @@ export const resolve: ResolveHook = (specifier, context, next) => {
     specifier,
     fileURLToPath(context.parentURL),
     data.compilerOptions,
-    host,
+    ts.sys,
+    resolutionCache,
   );
 
   if (!resolvedModule || resolvedModule.isExternalLibraryImport) {
@@ -73,25 +75,23 @@ export const resolve: ResolveHook = (specifier, context, next) => {
 };
 
 export const load: LoadHook = async (url, context, next) => {
-  // @todo не уверен что так стоит делать...
   if (!EXT_REGEX.test(url)) {
     return next(url, context);
   }
 
   // создаем ключ кэша используя хэш имени и хэш содержимого
+  // @todo учитывать mtimeMs, size файла tsconfig.json
   const fileName = fileURLToPath(url);
   const { mtimeMs, size } = await fs.stat(fileName);
   const cacheKey = createHash('md5').update(`${url}-${mtimeMs}-${size}`).digest('hex');
-
-  // @todo учитывать mtimeMs, size файла tsconfig.json
   const cachePath = path.join(TRANSPILE_CACHE_DIR, `${cacheKey}.js`);
 
   // проверяем наличие в кэше
   if (existsSync(cachePath)) {
     return {
       format: 'module',
-      shortCircuit: true,
       source: await fs.readFile(cachePath, 'utf8'),
+      shortCircuit: true,
     };
   }
 

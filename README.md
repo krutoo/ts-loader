@@ -1,9 +1,9 @@
 # TypeScript loader for Node.js
 
 - Depends only on `typescript` package
-- Supports config `paths`
-- Supports TSX
 - Performs typecheck before running
+- Supports `paths`
+- Supports `tsx`
 
 ### Installation
 
