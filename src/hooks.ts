@@ -1,11 +1,12 @@
 import fs from 'node:fs/promises';
-import type { InitializeHook, LoadHook, ResolveHook } from 'node:module';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import ts from 'typescript';
-import type { InitializeHookData } from './types.ts';
-import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import type { InitializeHook, LoadHook, ResolveFnOutput, ResolveHook } from 'node:module';
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
+import type { CompilerOptions, ModuleResolutionCache } from 'typescript';
+import type { InitializeHookData } from './types.ts';
+import { getTypeScript } from './deps.ts';
 import { CACHE_DIR } from './constants.ts';
 
 // ВАЖНО: не должен иметь флагов g и y чтобы не быть stateful
@@ -16,10 +17,12 @@ const TRANSPILE_CACHE_DIR = path.join(process.cwd(), CACHE_DIR, 'transpilation')
 const RECURSIVE = { recursive: true };
 
 let data: InitializeHookData;
-let transpileOptions: ts.CompilerOptions;
-let resolutionCache: ts.ModuleResolutionCache;
+let transpileOptions: CompilerOptions;
+let resolutionCache: ModuleResolutionCache;
 
-export const initialize: InitializeHook = (initData: InitializeHookData) => {
+export const initialize: InitializeHook = async (initData: InitializeHookData) => {
+  const ts = await getTypeScript();
+
   data = initData;
 
   resolutionCache = ts.createModuleResolutionCache(process.cwd(), s => s, data.compilerOptions);
@@ -30,6 +33,7 @@ export const initialize: InitializeHook = (initData: InitializeHookData) => {
     module: ts.ModuleKind.ESNext,
 
     target: data.compilerOptions.target,
+    baseUrl: data.compilerOptions.baseUrl,
     rootDir: data.compilerOptions.rootDir,
     jsx: data.compilerOptions.jsx,
     jsxFactory: data.compilerOptions.jsxFactory,
@@ -50,11 +54,22 @@ export const initialize: InitializeHook = (initData: InitializeHookData) => {
   };
 };
 
-export const resolve: ResolveHook = (specifier, context, next) => {
-  if (!context.parentURL) {
+export const resolve: ResolveHook = async (specifier, context, next) => {
+  if (!context.parentURL || specifier.startsWith('node:')) {
     return next(specifier, context);
   }
 
+  let resolved: ResolveFnOutput | undefined;
+
+  try {
+    resolved = await next(specifier, context);
+  } catch {}
+
+  if (resolved && resolved.url.includes('/node_modules/')) {
+    return { ...resolved, shortCircuit: true };
+  }
+
+  const ts = await getTypeScript();
   const { resolvedModule } = ts.resolveModuleName(
     specifier,
     fileURLToPath(context.parentURL),
@@ -99,6 +114,7 @@ export const load: LoadHook = async (url, context, next) => {
   const source = await fs.readFile(fileURLToPath(url), 'utf-8');
 
   // компилируем
+  const ts = await getTypeScript();
   const output = ts.transpileModule(source, {
     fileName,
     compilerOptions: transpileOptions,

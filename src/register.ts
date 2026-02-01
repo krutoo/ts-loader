@@ -1,33 +1,48 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { register } from 'node:module';
-import ts from 'typescript';
+import type { ParsedCommandLine } from 'typescript';
 import type { InitializeHookData } from './types.ts';
 import { CACHE_DIR } from './constants.ts';
+import { getTypeScript } from './deps.ts';
 
-// ищем файл конфига
-const configPath = ts.findConfigFile(process.cwd(), ts.sys.fileExists);
+let config: ParsedCommandLine;
 
-if (!configPath) {
-  throw new Error('Config file not found');
-}
+const cachePath = path.join(process.cwd(), CACHE_DIR, `typecheck-${process.ppid}.json`);
 
-// читаем файл конфига
-const { config: rawConfig, error } = ts.readConfigFile(configPath, ts.sys.readFile);
+// ищем файл конфига в кэше (для родительского процесса)
+if (existsSync(cachePath)) {
+  config = JSON.parse(readFileSync(cachePath, 'utf-8'));
+} else {
+  // ищем файл конфига в проекте
+  const ts = await getTypeScript();
 
-if (error) {
-  console.error(error.messageText);
-  process.exit(1);
-}
+  const configPath = ts.findConfigFile(process.cwd(), ts.sys.fileExists);
 
-// парсим файл конфига
-const config = ts.parseJsonConfigFileContent(rawConfig, ts.sys, path.dirname(configPath));
-
-if (config.errors.length > 0) {
-  for (const error of config.errors) {
-    console.error(error.messageText);
+  if (!configPath) {
+    throw new Error('Config file not found');
   }
-  process.exit(1);
+
+  // читаем файл конфига
+  const { config: rawConfig, error } = ts.readConfigFile(configPath, ts.sys.readFile);
+
+  if (error) {
+    console.error(error.messageText);
+    process.exit(1);
+  }
+
+  // парсим файл конфига
+  config = ts.parseJsonConfigFileContent(rawConfig, ts.sys, path.dirname(configPath));
+
+  if (config.errors.length > 0) {
+    for (const error of config.errors) {
+      console.error(error.messageText);
+    }
+    process.exit(1);
+  }
+
+  // сохраняем файл конфига в кэш
+  writeFileSync(cachePath, JSON.stringify(config));
 }
 
 // включаем блокировку повторного typecheck в рамках одного и того же родительского процесса
@@ -45,6 +60,7 @@ try {
 
 // выполняем typecheck
 if (needTypeCheck) {
+  const ts = await getTypeScript();
   const program = ts.createProgram(config.fileNames, config.options);
 
   // ВАЖНО: вместо program.emit() просто собираем все ошибки
