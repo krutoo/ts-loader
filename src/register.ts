@@ -6,17 +6,18 @@ import type { InitializeHookData } from './types.ts';
 import { CACHE_DIR } from './constants.ts';
 import { getTypeScript } from './deps.ts';
 
-let config: ParsedCommandLine;
+let config: Pick<ParsedCommandLine, 'fileNames' | 'options'>;
+let needTypeCheck = false;
 
+// файл конфига в кэше (для родительского процесса)
 const cachePath = path.join(process.cwd(), CACHE_DIR, `typecheck-${process.ppid}.json`);
 
-// ищем файл конфига в кэше (для родительского процесса)
 if (existsSync(cachePath)) {
+  console.log('');
   config = JSON.parse(readFileSync(cachePath, 'utf-8'));
 } else {
   // ищем файл конфига в проекте
   const ts = await getTypeScript();
-
   const configPath = ts.findConfigFile(process.cwd(), ts.sys.fileExists);
 
   if (!configPath) {
@@ -32,31 +33,30 @@ if (existsSync(cachePath)) {
   }
 
   // парсим файл конфига
-  config = ts.parseJsonConfigFileContent(rawConfig, ts.sys, path.dirname(configPath));
+  const parsed = ts.parseJsonConfigFileContent(rawConfig, ts.sys, path.dirname(configPath));
 
-  if (config.errors.length > 0) {
-    for (const error of config.errors) {
+  if (parsed.errors.length > 0) {
+    for (const error of parsed.errors) {
       console.error(error.messageText);
     }
     process.exit(1);
   }
 
+  config = {
+    fileNames: parsed.fileNames,
+    options: parsed.options,
+  };
+
   // сохраняем файл конфига в кэш
-  writeFileSync(cachePath, JSON.stringify(config));
+  try {
+    mkdirSync(path.dirname(cachePath), { recursive: true });
+
+    // wx выбросит ошибку если кто-то уже записал файл
+    // @todo открывать дескриптор записи до поиска?
+    writeFileSync(cachePath, JSON.stringify(config), { flag: 'wx' });
+    needTypeCheck = true;
+  } catch {}
 }
-
-// включаем блокировку повторного typecheck в рамках одного и того же родительского процесса
-// это нужно например для node --test когда в рамках процесса register запускается несколько раз
-const lockPath = path.join(process.cwd(), CACHE_DIR, `typecheck-${process.ppid}.lock`);
-
-let needTypeCheck = false;
-
-try {
-  // @todo придумать как удалять созданные lock-файлы либо поменять подход
-  mkdirSync(path.dirname(lockPath), { recursive: true });
-  writeFileSync(lockPath, '', { flag: 'wx' }); // wx выбросит ошибку если кто-то уже записал файл
-  needTypeCheck = true;
-} catch {}
 
 // выполняем typecheck
 if (needTypeCheck) {
