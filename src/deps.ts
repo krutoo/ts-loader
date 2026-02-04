@@ -1,15 +1,10 @@
-import type typescript from 'typescript';
+import type ts from 'typescript';
+import { lazyInit } from './shared/lazy-init.ts';
 
-const cache = {
-  typescript: null as typeof typescript | null,
-};
-
-export async function getTypeScript(): Promise<typeof typescript> {
-  if (!cache.typescript) {
-    const mod = await import('typescript');
-
-    cache.typescript = mod.default;
-  }
-
-  return cache.typescript;
-}
+/**
+ * TypeScript is used as lazy dependency because it's size is over 10mb.
+ * It is slow to statically import it in each file because we it may not be needed.
+ */
+export const getTypeScript: () => Promise<typeof ts> = lazyInit(async () => {
+  return await import('typescript').then(mod => mod.default);
+});

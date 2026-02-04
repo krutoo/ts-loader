@@ -2,27 +2,25 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getTypeScript } from './deps.ts';
 import { CACHE_DIR } from './constants.ts';
-import type { ParsedCommandLine } from 'typescript';
+import type { Config } from './types.ts';
 
-export type Config = Pick<ParsedCommandLine, 'fileNames' | 'options'> & {
-  tsLoader: { skipCheck: boolean };
-};
-
-export async function defineConfig(instanceId: string): Promise<Config> {
+export async function defineConfig(sessionId: string): Promise<Config> {
   let config: Config;
 
-  // файл конфига в кэше (для родительского процесса)
-  const cachePath = path.join(process.cwd(), CACHE_DIR, `typecheck-${instanceId}.json`);
+  // файл конфига в кэше
+  const cachePath = path.join(process.cwd(), CACHE_DIR, `${sessionId}.json`);
 
   if (fs.existsSync(cachePath)) {
     config = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
   } else {
-    // ищем файл конфига в проекте
+    // ищем файл конфига
     const ts = await getTypeScript();
     const configPath = ts.findConfigFile(process.cwd(), ts.sys.fileExists);
 
     if (!configPath) {
-      throw new Error('Config file not found');
+      // @todo возвращать из функции а не логировать и завершать процесс
+      console.error('Config file not found');
+      process.exit(1);
     }
 
     // читаем файл конфига
@@ -46,6 +44,7 @@ export async function defineConfig(instanceId: string): Promise<Config> {
     }
 
     config = {
+      configPath,
       fileNames: parsed.fileNames,
       options: parsed.options,
       tsLoader: {
@@ -57,48 +56,37 @@ export async function defineConfig(instanceId: string): Promise<Config> {
     try {
       fs.mkdirSync(path.dirname(cachePath), { recursive: true });
 
-      // wx выбросит ошибку если кто-то уже записал файл
+      // wx бросит ошибку если кто-то уже пишет файл
       // @todo открывать дескриптор записи до поиска?
       fs.writeFileSync(cachePath, JSON.stringify(config), { flag: 'wx' });
-    } catch {}
+    } catch {
+      // noop
+    }
   }
 
   return config;
-}
-
-export function defineIsChecker(instanceId: string): boolean {
-  const lockPath = path.join(process.cwd(), CACHE_DIR, `typecheck-${instanceId}.lock`);
-
-  let isChecker = false;
-
-  if (!fs.existsSync(lockPath)) {
-    try {
-      fs.mkdirSync(path.dirname(lockPath), { recursive: true });
-      fs.writeFileSync(lockPath, '', { flag: 'wx' }); // wx упадет если кто-то уже начал писать в файл
-      isChecker = true;
-    } catch {}
-  }
-
-  return isChecker;
 }
 
 export async function performTypeCheck(config: Config): Promise<{ ok: boolean }> {
   const ts = await getTypeScript();
   const program = ts.createProgram(config.fileNames, config.options);
 
-  // ВАЖНО: вместо program.emit() просто собираем все ошибки
+  // ВАЖНО: вместо program.emit() просто собираем ошибки
   const diagnostics = [
-    ...program.getOptionsDiagnostics(),
-    ...program.getGlobalDiagnostics(),
-    ...program.getSyntacticDiagnostics(),
-    ...program.getSemanticDiagnostics(),
-    ...program.getDeclarationDiagnostics(),
+    //
     ...program.getConfigFileParsingDiagnostics(),
+    ...program.getOptionsDiagnostics(),
+    ...ts.getPreEmitDiagnostics(program),
   ];
+
+  if (config.options.declaration) {
+    diagnostics.push(...program.getDeclarationDiagnostics());
+  }
 
   if (diagnostics.length > 0) {
     const host = ts.createCompilerHost(config.options);
 
+    // @todo возвращать из функции а не логировать
     ts.sys.write(ts.formatDiagnosticsWithColorAndContext(diagnostics, host));
 
     return { ok: false };

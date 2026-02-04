@@ -1,5 +1,10 @@
-import type { CompilerOptions } from 'typescript';
+import type { ParsedCommandLine } from 'typescript';
+
+export type Config = Pick<ParsedCommandLine, 'fileNames' | 'options'> & {
+  configPath: string;
+  tsLoader: { skipCheck: boolean };
+};
 
 export interface InitializeHookData {
-  compilerOptions: CompilerOptions;
+  port: string;
 }
