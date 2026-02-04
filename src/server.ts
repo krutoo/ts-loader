@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from 'node:http';
 import type { CompilerOptions } from 'typescript';
-import { lazyInit } from './shared/lazy-init.ts';
+import { once } from './shared/once.ts';
 import { FileCache } from './shared/file-cache.ts';
 import { CACHE_DIR } from './constants.ts';
 import { getTypeScript } from './deps.ts';
@@ -18,14 +18,14 @@ interface HandlerContext {
   url: URL;
 }
 
-const getResolutionCache = lazyInit(async (options: CompilerOptions) => {
+const getResolutionCache = once(async (options: CompilerOptions) => {
   const ts = await getTypeScript();
   return ts.createModuleResolutionCache(process.cwd(), s => s, options);
 });
 
-const getFileCache = lazyInit(
-  () => new FileCache(path.join(process.cwd(), CACHE_DIR, 'transpiled')),
-);
+const getFileCache = once(() => {
+  return new FileCache(path.join(process.cwd(), CACHE_DIR, 'transpiled'));
+});
 
 export function createLoaderServer({ compilerOptions }: LoaderServerConfig): Server {
   const handleResolve = async ({ res, url }: HandlerContext) => {
@@ -135,7 +135,7 @@ export function createLoaderServer({ compilerOptions }: LoaderServerConfig): Ser
         res.end('Not found');
       }
     } catch (error) {
-      res.writeHead(500, 'Internal server error', { 'content-type': 'text/plain' });
+      res.writeHead(500, 'Internal error', { 'content-type': 'text/plain' });
       res.end(String(error));
     }
   });
