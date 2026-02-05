@@ -19,9 +19,7 @@ if (!process.env.TS_LOADER_SESSION_ID) {
     }
   }
 
-  const server = createLoaderServer({
-    compilerOptions: config.options,
-  });
+  const server = createLoaderServer(config);
 
   server.unref();
 

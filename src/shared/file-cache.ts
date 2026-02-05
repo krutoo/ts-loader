@@ -3,18 +3,28 @@ import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 
+export interface FileCacheOptions {
+  cacheDir: string;
+  hashFile?: (filename: string) => string | Promise<string>;
+}
+
 export class FileCache {
   cacheDir: string;
+  hashFile: (filename: string) => string | Promise<string>;
 
-  constructor(cacheDir: string) {
+  constructor({ cacheDir, hashFile = FileCache.shallowHashFile }: FileCacheOptions) {
     this.cacheDir = cacheDir;
+    this.hashFile = hashFile;
+  }
+
+  static async shallowHashFile(filename: string): Promise<string> {
+    const { mtimeMs, size } = await fs.stat(filename);
+
+    return createHash('md5').update(`${filename}-${mtimeMs}-${size}`).digest('hex');
   }
 
   async getItemPath(filename: string): Promise<string> {
-    // создаем ключ кэша используя хэш имени и хэш содержимого
-    // @todo учитывать mtimeMs, size файла tsconfig.json
-    const { mtimeMs, size } = await fs.stat(filename);
-    const cacheKey = createHash('md5').update(`${filename}-${mtimeMs}-${size}`).digest('hex');
+    const cacheKey = await this.hashFile(filename);
 
     return path.join(this.cacheDir, cacheKey);
   }

@@ -28,12 +28,15 @@ export const resolve: ResolveHook = async (specifier, context, next) => {
     return { ...resolved, shortCircuit: true };
   }
 
-  const url = new URL(`http://localhost:${data.port}/resolve`);
+  const apiUrl = new URL(`http://localhost:${data.port}/resolve`);
 
-  url.searchParams.set('specifier', specifier);
-  context.parentURL && url.searchParams.set('parent', context.parentURL);
+  apiUrl.searchParams.set('specifier', specifier);
 
-  const res = await fetch(url);
+  if (context.parentURL) {
+    apiUrl.searchParams.set('parent', context.parentURL);
+  }
+
+  const res = await fetch(apiUrl);
 
   if (!res.ok) {
     return resolved ?? next(specifier, context);

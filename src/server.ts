@@ -2,15 +2,12 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from 'node:http';
-import type { CompilerOptions } from 'typescript';
 import { once } from './shared/once.ts';
 import { FileCache } from './shared/file-cache.ts';
 import { CACHE_DIR } from './constants.ts';
 import { getTypeScript } from './deps.ts';
-
-export interface LoaderServerConfig {
-  compilerOptions: CompilerOptions;
-}
+import type { Config } from './types.ts';
+import { createHash } from 'node:crypto';
 
 interface HandlerContext {
   req: IncomingMessage;
@@ -18,16 +15,37 @@ interface HandlerContext {
   url: URL;
 }
 
-const getResolutionCache = once(async (options: CompilerOptions) => {
-  const ts = await getTypeScript();
-  return ts.createModuleResolutionCache(process.cwd(), s => s, options);
-});
+async function getFileHashSalt(filename: string) {
+  const { mtimeMs, size } = await fs.stat(filename);
 
-const getFileCache = once(() => {
-  return new FileCache(path.join(process.cwd(), CACHE_DIR, 'transpiled'));
-});
+  return `${filename}-${mtimeMs}-${size}`;
+}
 
-export function createLoaderServer({ compilerOptions }: LoaderServerConfig): Server {
+export function createLoaderServer(config: Config): Server {
+  const getResolutionCache = once(async () => {
+    const ts = await getTypeScript();
+
+    return ts.createModuleResolutionCache(process.cwd(), s => s, config.options);
+  });
+
+  const getConfigHashSalt = once(() => {
+    return getFileHashSalt(config.configPath);
+  });
+
+  const getFileCache = once(() => {
+    return new FileCache({
+      cacheDir: path.join(process.cwd(), CACHE_DIR, 'transpiled'),
+      async hashFile(filename) {
+        // ВАЖНО: учитываем и сам файл и файл tsconfig.json
+        const hash = createHash('md5')
+          .update(await getConfigHashSalt())
+          .update(await getFileHashSalt(filename));
+
+        return hash.digest('hex');
+      },
+    });
+  });
+
   const handleResolve = async ({ res, url }: HandlerContext) => {
     const specifier = url.searchParams.get('specifier');
     const parent = url.searchParams.get('parent');
@@ -39,7 +57,7 @@ export function createLoaderServer({ compilerOptions }: LoaderServerConfig): Ser
     }
 
     const ts = await getTypeScript();
-    const resolutionCache = await getResolutionCache(compilerOptions);
+    const resolutionCache = await getResolutionCache();
     const containingFile = parent
       ? fileURLToPath(parent)
       : path.join(process.cwd(), 'nonexistent.ts');
@@ -47,7 +65,7 @@ export function createLoaderServer({ compilerOptions }: LoaderServerConfig): Ser
     const { resolvedModule } = ts.resolveModuleName(
       specifier,
       containingFile,
-      compilerOptions,
+      config.options,
       ts.sys,
       resolutionCache,
     );
@@ -90,7 +108,8 @@ export function createLoaderServer({ compilerOptions }: LoaderServerConfig): Ser
     const output = ts.transpileModule(source, {
       fileName,
       compilerOptions: {
-        ...compilerOptions,
+        ...config.options,
+
         // @todo надо ли ставить CommonJS если у fileName расширение .cts?
         module: ts.ModuleKind.ESNext,
       },
