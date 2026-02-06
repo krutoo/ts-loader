@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { getTypeScript } from './deps.ts';
 import { CACHE_DIR } from './constants.ts';
+import { getTypeScript } from './deps.ts';
 import type { LoaderConfig } from './types.ts';
 
 export async function defineLoaderConfig(sessionId: string): Promise<LoaderConfig> {

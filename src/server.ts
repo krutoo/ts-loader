@@ -1,13 +1,13 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
+import { createServer, type IncomingMessage, type ServerResponse, type Server } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { createServer, type IncomingMessage, type ServerResponse, type Server } from 'node:http';
-import { once } from './shared/once.ts';
-import { FileCache } from './shared/file-cache.ts';
 import { CACHE_DIR } from './constants.ts';
 import { getTypeScript } from './deps.ts';
+import { FileCache } from './shared/file-cache.ts';
+import { once } from './shared/once.ts';
 import type { LoaderConfig } from './types.ts';
-import { createHash } from 'node:crypto';
 
 interface HandlerContext {
   req: IncomingMessage;

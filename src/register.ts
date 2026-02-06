@@ -1,8 +1,8 @@
 import { register } from 'node:module';
 import type { AddressInfo } from 'node:net';
+import { createLoaderServer } from './server.ts';
 import type { InitializeHookData } from './types.ts';
 import { defineLoaderConfig, performTypeCheck } from './utils.ts';
-import { createLoaderServer } from './server.ts';
 
 const sessionId = process.env.TS_LOADER_SESSION_ID || `id${Date.now()}`;
 const config = await defineLoaderConfig(sessionId);
