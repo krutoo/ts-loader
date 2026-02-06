@@ -1,5 +1,11 @@
 import fs from 'node:fs/promises';
-import type { InitializeHook, LoadHook, ResolveFnOutput, ResolveHook } from 'node:module';
+import {
+  type InitializeHook,
+  type LoadHook,
+  type ResolveFnOutput,
+  type ResolveHook,
+  isBuiltin,
+} from 'node:module';
 import type { InitializeHookData } from './types.ts';
 
 // ВАЖНО: не должен иметь флагов g и y чтобы не быть stateful
@@ -12,7 +18,7 @@ export const initialize: InitializeHook = (initData: InitializeHookData) => {
 };
 
 export const resolve: ResolveHook = async (specifier, context, next) => {
-  if (specifier.startsWith('node:')) {
+  if (specifier.startsWith('node:') || isBuiltin(specifier)) {
     return next(specifier, context);
   }
 

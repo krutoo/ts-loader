@@ -6,7 +6,7 @@ import { once } from './shared/once.ts';
 import { FileCache } from './shared/file-cache.ts';
 import { CACHE_DIR } from './constants.ts';
 import { getTypeScript } from './deps.ts';
-import type { Config } from './types.ts';
+import type { LoaderConfig } from './types.ts';
 import { createHash } from 'node:crypto';
 
 interface HandlerContext {
@@ -21,7 +21,7 @@ async function getFileHashSalt(filename: string) {
   return `${filename}-${mtimeMs}-${size}`;
 }
 
-export function createLoaderServer(config: Config): Server {
+export function createLoaderServer(config: LoaderConfig): Server {
   const getResolutionCache = once(async () => {
     const ts = await getTypeScript();
 

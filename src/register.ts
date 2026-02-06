@@ -1,11 +1,11 @@
 import { register } from 'node:module';
 import type { AddressInfo } from 'node:net';
 import type { InitializeHookData } from './types.ts';
-import { defineConfig, performTypeCheck } from './utils.ts';
+import { defineLoaderConfig, performTypeCheck } from './utils.ts';
 import { createLoaderServer } from './server.ts';
 
 const sessionId = process.env.TS_LOADER_SESSION_ID || `id${Date.now()}`;
-const config = await defineConfig(sessionId);
+const config = await defineLoaderConfig(sessionId);
 
 // главный процесс отвечает за typecheck и запуск сервера
 if (!process.env.TS_LOADER_SESSION_ID) {

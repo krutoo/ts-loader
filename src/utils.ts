@@ -2,10 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getTypeScript } from './deps.ts';
 import { CACHE_DIR } from './constants.ts';
-import type { Config } from './types.ts';
+import type { LoaderConfig } from './types.ts';
 
-export async function defineConfig(sessionId: string): Promise<Config> {
-  let config: Config;
+export async function defineLoaderConfig(sessionId: string): Promise<LoaderConfig> {
+  let config: LoaderConfig;
 
   // файл конфига в кэше
   const cachePath = path.join(process.cwd(), CACHE_DIR, `${sessionId}.json`);
@@ -67,7 +67,7 @@ export async function defineConfig(sessionId: string): Promise<Config> {
   return config;
 }
 
-export async function performTypeCheck(config: Config): Promise<{ ok: boolean }> {
+export async function performTypeCheck(config: LoaderConfig): Promise<{ ok: boolean }> {
   const ts = await getTypeScript();
   const program = ts.createProgram(config.fileNames, config.options);
 
