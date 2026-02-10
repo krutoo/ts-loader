@@ -11,8 +11,8 @@ const config = await defineLoaderConfig(sessionId);
 if (!process.env.TS_LOADER_SESSION_ID) {
   process.env.TS_LOADER_SESSION_ID = sessionId;
 
-  if (!config.tsLoader.skipCheck) {
-    const checking = await performTypeCheck(config);
+  if (config.configPath && config.configParsed && !config.tsLoader.skipCheck) {
+    const checking = await performTypeCheck(config.configParsed);
 
     if (!checking.ok) {
       process.exit(1);

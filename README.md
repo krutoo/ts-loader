@@ -1,8 +1,8 @@
 # TypeScript loader for Node.js
 
 - Depends **only** on `typescript` package
-- Automatically performs typecheck before running
-- Supports `moduleResolution`, `paths`, `tsx` and all other TypeScript features
+- Automatically performs **typecheck** before running (if tsconfig is present)
+- Supports `moduleResolution`, `paths`, `tsx`, enums and all other TypeScript features
 
 ### Installation
 
@@ -26,11 +26,31 @@ To use it automatically in all NPM scripts you need to place it to `.npmrc`:
 node-options='--import @krutoo/ts-loader'
 ```
 
+### Configuration
+
+Put `ts-loader` on top of your `tsconfig.json` to configure `ts-loader`:
+
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": {
+    // ...
+  },
+  "ts-loader": {
+    "skipCheck": true,
+  },
+}
+```
+
+#### Options
+
+- `skipCheck` - boolean, disables running typecheck before transpilation
+
 ### Why
 
 Modern Node.js supports basic TypeScript syntax via type stripping.
 
-The main feature of TypeScript as language is **static analysis** aka typecheck.
+The main feature of TypeScript as language is **static analysis** aka _typecheck_.
 Without typecheck, this is just transpilation like in Babel.
 
 This loader gives you ability to:
@@ -45,6 +65,5 @@ This loader is inspired by brilliant [tsimp](https://github.com/tapjs/tsimp) pac
 ### To Do
 
 - Using `tsgo`
-- Allow missing `tsconfig.json` and skip typecheck if not present?
 - Allow to fully disable cache
 - Do not perform typecheck if files are not changed since last typecheck? (how?)

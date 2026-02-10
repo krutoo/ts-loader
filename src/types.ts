@@ -1,8 +1,11 @@
 import type { ParsedCommandLine } from 'typescript';
 
-export interface LoaderConfig extends Pick<ParsedCommandLine, 'fileNames' | 'options'> {
-  configPath: string;
-  tsLoader: { skipCheck: boolean };
+export interface LoaderConfig {
+  configPath?: string;
+  configParsed?: Pick<ParsedCommandLine, 'fileNames' | 'options'>;
+  tsLoader: {
+    skipCheck: boolean;
+  };
 }
 
 export interface InitializeHookData {

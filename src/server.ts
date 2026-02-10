@@ -25,18 +25,18 @@ export function createLoaderServer(config: LoaderConfig): Server {
   const getResolutionCache = once(async () => {
     const ts = await getTypeScript();
 
-    return ts.createModuleResolutionCache(process.cwd(), s => s, config.options);
+    return ts.createModuleResolutionCache(process.cwd(), s => s, config.configParsed?.options);
   });
 
   const getConfigHashSalt = once(() => {
-    return getFileHashSalt(config.configPath);
+    return getFileHashSalt(config.configPath ?? '');
   });
 
   const getFileCache = once(() => {
     return new FileCache({
       cacheDir: path.join(process.cwd(), CACHE_DIR, 'transpiled'),
       async hashFile(filename) {
-        // ВАЖНО: учитываем и сам файл и файл tsconfig.json
+        // ВАЖНО: учитываем и сам файл, и файл tsconfig.json
         const hash = createHash('md5')
           .update(await getConfigHashSalt())
           .update(await getFileHashSalt(filename));
@@ -65,7 +65,7 @@ export function createLoaderServer(config: LoaderConfig): Server {
     const { resolvedModule } = ts.resolveModuleName(
       specifier,
       containingFile,
-      config.options,
+      config.configParsed?.options ?? {},
       ts.sys,
       resolutionCache,
     );
@@ -108,7 +108,7 @@ export function createLoaderServer(config: LoaderConfig): Server {
     const output = ts.transpileModule(source, {
       fileName,
       compilerOptions: {
-        ...config.options,
+        ...config.configParsed?.options,
 
         // @todo надо ли ставить CommonJS если у fileName расширение .cts?
         module: ts.ModuleKind.ESNext,

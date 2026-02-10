@@ -18,9 +18,11 @@ export async function defineLoaderConfig(sessionId: string): Promise<LoaderConfi
     const configPath = ts.findConfigFile(process.cwd(), ts.sys.fileExists);
 
     if (!configPath) {
-      // @todo возвращать из функции а не логировать и завершать процесс
-      console.error('Config file not found');
-      process.exit(1);
+      return {
+        tsLoader: {
+          skipCheck: false,
+        },
+      };
     }
 
     // читаем файл конфига
@@ -45,8 +47,10 @@ export async function defineLoaderConfig(sessionId: string): Promise<LoaderConfi
 
     config = {
       configPath,
-      fileNames: parsed.fileNames,
-      options: parsed.options,
+      configParsed: {
+        fileNames: parsed.fileNames,
+        options: parsed.options,
+      },
       tsLoader: {
         skipCheck: rawConfig?.['ts-loader']?.skipCheck ?? false,
       },
@@ -67,7 +71,9 @@ export async function defineLoaderConfig(sessionId: string): Promise<LoaderConfi
   return config;
 }
 
-export async function performTypeCheck(config: LoaderConfig): Promise<{ ok: boolean }> {
+export async function performTypeCheck(
+  config: NonNullable<LoaderConfig['configParsed']>,
+): Promise<{ ok: boolean }> {
   const ts = await getTypeScript();
   const program = ts.createProgram(config.fileNames, config.options);
 
