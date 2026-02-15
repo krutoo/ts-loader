@@ -12,9 +12,7 @@ npm i -D @krutoo/ts-loader typescript
 
 ### Usage
 
-First you need a valid `tsconfig.json` in your project root folder.
-
-Then you can use package as regular ESM loader:
+You can use package as regular ESM loader:
 
 ```sh
 node --import @krutoo/ts-loader ./my-program.tsx
@@ -25,6 +23,8 @@ To use it automatically in all NPM scripts you need to place it to `.npmrc`:
 ```ini
 node-options='--import @krutoo/ts-loader'
 ```
+
+To automatically perform typecheck you need a valid `tsconfig.json` in your project root folder.
 
 ### Configuration
 

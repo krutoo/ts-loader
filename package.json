@@ -28,7 +28,7 @@
     "build": "node ./scripts/build.ts"
   },
   "peerDependencies": {
-    "typescript": "^5.9.3"
+    "typescript": "^5"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
