@@ -1,0 +1,22 @@
+{
+  "name": "@krutoo/ts-loader-tests",
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "preparing": "npm i --no-save ts-loader@file:../krutoo-ts-loader-0.0.0.tgz",
+    "check": "tsc -p . --noEmit",
+    "dev": "node --import ts-loader ./src/index.tsx",
+    "test": "node --import ts-loader --test --experimental-test-snapshots './src/**/*.test.{ts,tsx}'",
+    "test:update": "node --import ts-loader --test --experimental-test-snapshots --test-update-snapshots './src/**/*.test.{ts,tsx}'"
+  },
+  "dependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.3.0",
+    "@types/react-dom": "^19.2.3",
+    "@types/react": "^19.2.14",
+    "express": "^5.2.1",
+    "react-dom": "^19.2.4",
+    "react": "^19.2.4",
+    "typescript": "^5.9.3"
+  }
+}
