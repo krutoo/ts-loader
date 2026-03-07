@@ -6,15 +6,19 @@ import {
   type ResolveHook,
   isBuiltin,
 } from 'node:module';
-import type { InitializeHookData } from './types.ts';
+import { createHttpApi } from './api.ts';
+import type { Api, InitializeHookData } from './types.ts';
 
 // ВАЖНО: не должен иметь флагов g и y чтобы не быть stateful
 const EXT_REGEX = /\.(jsx|ts|tsx|mts|cts)$/;
 
-let data: InitializeHookData;
+let api: Api;
 
 export const initialize: InitializeHook = (initData: InitializeHookData) => {
-  data = initData;
+  api = createHttpApi({
+    // ВАЖНО: чтобы не запрашивать таблицу хостов сразу идем на 127.0.0.1
+    baseUrl: `http://127.0.0.1:${initData.port}`,
+  });
 };
 
 export const resolve: ResolveHook = async (specifier, context, next) => {
@@ -34,23 +38,18 @@ export const resolve: ResolveHook = async (specifier, context, next) => {
     return { ...resolved, shortCircuit: true };
   }
 
-  const apiUrl = new URL(`http://localhost:${data.port}/resolve`);
+  const result = await api.resolve({
+    specifier,
+    parentUrl: context.parentURL,
+  });
 
-  apiUrl.searchParams.set('specifier', specifier);
-
-  if (context.parentURL) {
-    apiUrl.searchParams.set('parent', context.parentURL);
-  }
-
-  const res = await fetch(apiUrl);
-
-  if (!res.ok) {
+  if (!result) {
     return resolved ?? next(specifier, context);
   }
 
   return {
     format: 'module',
-    url: await res.text(),
+    url: result,
     shortCircuit: true,
   };
 };
@@ -60,19 +59,17 @@ export const load: LoadHook = async (url, context, next) => {
     return next(url, context);
   }
 
-  const apiUrl = new URL(`http://localhost:${data.port}/transpile`);
+  const result = await api.transpile({
+    fileUrl: url,
+  });
 
-  apiUrl.searchParams.set('fileUrl', url);
-
-  const res = await fetch(apiUrl);
-
-  if (!res.ok) {
+  if (!result) {
     throw new Error(`Failed to load "${url}"`);
   }
 
   return {
     format: 'module',
-    source: await fs.readFile(await res.text(), 'utf-8'),
+    source: await fs.readFile(result, 'utf-8'),
     shortCircuit: true,
   };
 };

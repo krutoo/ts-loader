@@ -21,7 +21,7 @@ async function getFileHashSalt(filename: string) {
   return `${filename}-${mtimeMs}-${size}`;
 }
 
-export function createLoaderServer(config: LoaderConfig): Server {
+export function createHttpServer(config: LoaderConfig): Server {
   const getResolutionCache = once(async () => {
     const ts = await getTypeScript();
 
@@ -48,7 +48,7 @@ export function createLoaderServer(config: LoaderConfig): Server {
 
   const handleResolve = async ({ res, url }: HandlerContext) => {
     const specifier = url.searchParams.get('specifier');
-    const parent = url.searchParams.get('parent');
+    const parent = url.searchParams.get('parentUrl');
 
     if (!specifier) {
       res.writeHead(422, 'Invalid payload', { 'content-type': 'text/plain' });

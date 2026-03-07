@@ -1,6 +1,5 @@
 import { register } from 'node:module';
-import type { AddressInfo } from 'node:net';
-import { createLoaderServer } from './server.ts';
+import { spawnServerProcess } from './server-spawn.ts';
 import type { InitializeHookData } from './types.ts';
 import { defineLoaderConfig, performTypeCheck } from './utils.ts';
 
@@ -19,20 +18,9 @@ if (!process.env.TS_LOADER_SESSION_ID) {
     }
   }
 
-  const server = createLoaderServer(config);
+  const serverInfo = await spawnServerProcess(config);
 
-  server.unref();
-
-  await new Promise<void>(done => {
-    server.listen(0, () => {
-      const address = server.address() as AddressInfo;
-      const port = address.port;
-
-      process.env.TS_LOADER_PORT = `${port}`;
-
-      done();
-    });
-  });
+  process.env.TS_LOADER_PORT = serverInfo.port;
 }
 
 register('./hooks.js', {

@@ -1,0 +1,3 @@
+exports[`Helmet > should renders correctly 1`] = `
+"<html><head><title>Home page</title></head><body>Hello, world!</body></html>"
+`;
