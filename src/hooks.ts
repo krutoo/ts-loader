@@ -34,7 +34,7 @@ export const resolve: ResolveHook = async (specifier, context, next) => {
     // noop
   }
 
-  if (resolved && resolved.url.includes('/node_modules/')) {
+  if (resolved?.url.includes('/node_modules/')) {
     return { ...resolved, shortCircuit: true };
   }
 
