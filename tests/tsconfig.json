@@ -15,7 +15,6 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
       "#components/*": ["./src/components/*"],
       "#utils/*": ["./src/utils/*"]

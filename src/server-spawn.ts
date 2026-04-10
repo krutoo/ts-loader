@@ -18,6 +18,7 @@ export async function spawnServerProcess(config: LoaderConfig): Promise<{ port: 
         TERM: 'dumb',
         NO_COLOR: '1',
         NODE_OPTIONS: '--no-warnings --no-deprecation',
+        TS_LOADER_SESSION_ID: process.env.TS_LOADER_SESSION_ID,
       },
     });
 
