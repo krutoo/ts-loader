@@ -58,6 +58,16 @@ This loader gives you ability to:
 - Use full TypeScript syntax in your project without bundling/transpilation
 - Automatically perform typecheck before running (no need to `tsc --noEmit && node ./my-code.ts`)
 
+### Source maps and test coverage
+
+Source maps will be added to JS source as base64 when `--enable-source-maps` flag provided.
+
+So, for example, to run loader with `c8` you can run code like this:
+
+```sh
+c8 node --enable-source-maps --import @krutoo/ts-loader --test 'src/**/*.test.ts'
+```
+
 ### Credits
 
 This loader is inspired by brilliant [tsimp](https://github.com/tapjs/tsimp) package
