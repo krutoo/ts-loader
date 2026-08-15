@@ -15,6 +15,23 @@ interface HandlerContext {
   url: URL;
 }
 
+const isSourceMapsEnabled = once((): boolean => {
+  if (process.env.NODE_V8_COVERAGE) {
+    return true;
+  }
+
+  const nodeOptions = process.env.NODE_OPTIONS || '';
+  if (nodeOptions.includes('--enable-source-maps')) {
+    return true;
+  }
+
+  if (process.execArgv.includes('--enable-source-maps')) {
+    return true;
+  }
+
+  return false;
+});
+
 async function getFileHashSalt(filename: string) {
   const { mtimeMs, size } = await fs.stat(filename);
 
@@ -28,7 +45,7 @@ export function createHttpServer(config: LoaderConfig): Server {
     return ts.createModuleResolutionCache(process.cwd(), s => s, config.configParsed?.options);
   });
 
-  const getConfigHashSalt = once(() => {
+  const getConfigFileHashSalt = once(() => {
     return getFileHashSalt(config.configPath ?? '');
   });
 
@@ -36,10 +53,11 @@ export function createHttpServer(config: LoaderConfig): Server {
     return new FileCache({
       cacheDir: path.join(process.cwd(), CACHE_DIR, 'transpiled'),
       async hashFile(filename) {
-        // ВАЖНО: учитываем и сам файл, и файл tsconfig.json
+        // ВАЖНО: учитываем и сам файл, и файл tsconfig.json и process.sourceMapsEnabled
         const hash = createHash('md5')
-          .update(await getConfigHashSalt())
-          .update(await getFileHashSalt(filename));
+          .update(await getConfigFileHashSalt())
+          .update(await getFileHashSalt(filename))
+          .update(`sourceMapsEnabled = ${isSourceMapsEnabled()}`);
 
         return hash.digest('hex');
       },
@@ -110,14 +128,36 @@ export function createHttpServer(config: LoaderConfig): Server {
       compilerOptions: {
         ...config.configParsed?.options,
 
+        // ВАЖНО: для корректного замера покрытия (например средствами v8)
+        ...(isSourceMapsEnabled() && {
+          sourceMap: true,
+          inlineSources: true,
+          inlineSourceMap: false,
+        }),
+
         // @todo надо ли ставить CommonJS если у fileName расширение .cts?
         module: ts.ModuleKind.ESNext,
       },
       reportDiagnostics: false,
     });
 
+    let resultText = output.outputText.replace(/\/\/# sourceMappingURL=.+$/, '');
+
+    // если есть sourcemap - докидываем его прямо в файл в виде base64
+    // это нужно тк отдельные файлы карт кода не создаются
+    if (isSourceMapsEnabled() && output.sourceMapText) {
+      const sourcemap = JSON.parse(output.sourceMapText);
+
+      sourcemap.sources = [fileName];
+
+      const base64Map = Buffer.from(JSON.stringify(sourcemap)).toString('base64');
+      const sourceMappingURL = `//# sourceMappingURL=data:application/json;charset=utf-8;base64,${base64Map}`;
+
+      resultText = `${resultText}\n${sourceMappingURL}`;
+    }
+
     // сохраняем в кэш
-    await fileCache.setItem(cachePath, output.outputText);
+    await fileCache.setItem(cachePath, resultText);
 
     res.writeHead(200, 'Created', { 'content-type': 'text/plain' });
     res.end(cachePath);
